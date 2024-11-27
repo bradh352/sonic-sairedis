@@ -207,6 +207,26 @@ void SaiDiscovery::discover(
 
                 if (ot == SAI_OBJECT_TYPE_NULL)
                 {
+                    /* Workaround for https://github.com/sonic-net/sonic-buildimage/issues/20725
+                     * Error:
+                     * `SAI_PORT_ATTR_SELECTIVE_COUNTER_LIST (on SAI_OBJECT_TYPE_PORT RID oid:0x20100000000) got value oid:0x559ac8beda80 objectTypeQuery returned NULL object type`
+                     * > that attribute was recently added in 2024/10/7
+                     *
+                     * > so what i expect is happening, vendor have some custom/private attribute after
+                     * > SAI_PORT_ATTR_END, on older version of SAI headers which have the same enum value
+                     * > as SAI_PORT_ATTR_SELECTIVE_COUNTER_LIST, which causes syncd think that
+                     * > SAI_PORT_ATTR_SELECTIVE_COUNTER_LIST is implemented when actually this is private
+                     * > internal attribute
+                     */
+                    if (md->attrid >= SAI_PORT_ATTR_SELECTIVE_COUNTER_LIST) {
+                        SWSS_LOG_WARN("query %s (on %s RID %s) got value %s, but objectTypeQuery returned NULL.  Likely a vendor bug, skipping.",
+                            md->attridname,
+                            sai_serialize_object_type(md->objecttype).c_str(),
+                            sai_serialize_object_id(rid).c_str(),
+                            sai_serialize_object_id(attr.value.oid).c_str());
+                        continue;
+                    }
+
                     SWSS_LOG_THROW("when query %s (on %s RID %s) got value %s objectTypeQuery returned NULL object type",
                             md->attridname,
                             sai_serialize_object_type(md->objecttype).c_str(),
